@@ -1,0 +1,316 @@
+# Example Lovelace Dashboard for Clear Dark Sky Integration
+
+# ============================================
+# FULL ASTRONOMY DASHBOARD
+# ============================================
+title: Astronomy Tonight
+views:
+  - title: Forecast
+    path: forecast
+    icon: mdi:telescope
+    cards:
+      # Main forecast card
+      - type: vertical-stack
+        cards:
+          # Header with observing quality
+          - type: glance
+            title: Tonight's Observing Conditions
+            entities:
+              - entity: sensor.clear_dark_sky_observing_quality
+                name: Quality
+              - entity: sensor.clear_dark_sky_clear_hours_tonight
+                name: Clear Hours
+              - entity: sensor.clear_dark_sky_darkness_hours
+                name: Darkness
+          
+          # Binary sensor status
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: binary_sensor.clear_dark_sky_clear_sky_tonight
+                name: Clear Tonight
+              - type: entity
+                entity: binary_sensor.clear_dark_sky_good_observing_conditions
+                name: Good Conditions
+              - type: entity
+                entity: binary_sensor.clear_dark_sky_astronomical_darkness
+                name: Dark Now
+
+      # Clear Dark Sky chart image
+      - type: picture-entity
+        entity: camera.clear_dark_sky_chart
+        name: Clear Dark Sky Forecast
+        show_state: false
+        tap_action:
+          action: url
+          url_path: https://www.cleardarksky.com
+        hold_action:
+          action: more-info
+
+      # Detailed timing card
+      - type: entities
+        title: Darkness Schedule
+        show_header_toggle: false
+        entities:
+          - entity: sensor.clear_dark_sky_astronomical_dusk
+            name: Astronomical Dusk
+            icon: mdi:weather-sunset-down
+          - entity: sensor.clear_dark_sky_astronomical_dawn
+            name: Astronomical Dawn
+            icon: mdi:weather-sunset-up
+          - type: divider
+          - entity: sensor.sun_next_setting
+            name: Sunset
+          - entity: sensor.sun_next_rising
+            name: Sunrise
+
+      # Observing session planner (requires input_text helper)
+      - type: markdown
+        title: Session Recommendation
+        content: |
+          {{ states('input_text.imaging_recommendation') }}
+          
+          **Moon Phase:** {{ states('sensor.moon_phase') }}
+
+# ============================================
+# COMPACT CARD EXAMPLES
+# ============================================
+
+# Minimal status card
+- type: entities
+  title: Observing Status
+  entities:
+    - binary_sensor.clear_dark_sky_clear_sky_tonight
+    - sensor.clear_dark_sky_observing_quality
+    - sensor.clear_dark_sky_clear_hours_tonight
+
+# Picture glance card with quick info
+- type: picture-glance
+  title: Clear Dark Sky
+  camera_image: camera.clear_dark_sky_chart
+  entities:
+    - binary_sensor.clear_dark_sky_clear_sky_tonight
+    - sensor.clear_dark_sky_clear_hours_tonight
+    - sensor.clear_dark_sky_observing_quality
+
+# Conditional card - only shows when clear
+- type: conditional
+  conditions:
+    - entity: binary_sensor.clear_dark_sky_clear_sky_tonight
+      state: "on"
+  card:
+    type: markdown
+    content: |
+      ## 🌟 Clear Skies Tonight!
+      
+      **{{ states('sensor.clear_dark_sky_clear_hours_tonight') }} hours** of clear observing time
+      
+      Quality: **{{ states('sensor.clear_dark_sky_observing_quality') }}**
+
+# ============================================
+# ADVANCED CUSTOM CARDS
+# ============================================
+
+# Using button card (requires custom:button-card)
+- type: custom:button-card
+  entity: binary_sensor.clear_dark_sky_clear_sky_tonight
+  name: Observing Tonight
+  show_state: true
+  state:
+    - value: "on"
+      color: rgb(0, 200, 0)
+      icon: mdi:weather-night
+    - value: "off"
+      color: rgb(200, 0, 0)
+      icon: mdi:cloud
+  styles:
+    card:
+      - height: 100px
+    name:
+      - font-size: 16px
+      - font-weight: bold
+  tap_action:
+    action: more-info
+
+# Using apexcharts card (requires custom:apexcharts-card)
+- type: custom:apexcharts-card
+  header:
+    title: Clear Hours Trend
+    show: true
+  graph_span: 7d
+  series:
+    - entity: sensor.clear_dark_sky_clear_hours_tonight
+      name: Clear Hours
+      type: column
+      color: blue
+
+# Using mushroom cards (requires custom:mushroom-cards)
+- type: custom:mushroom-entity-card
+  entity: binary_sensor.clear_dark_sky_clear_sky_tonight
+  name: Clear Sky Tonight
+  icon: mdi:weather-night
+  icon_color: blue
+  tap_action:
+    action: more-info
+
+# ============================================
+# MOBILE DASHBOARD
+# ============================================
+title: Astronomy (Mobile)
+views:
+  - title: Quick View
+    path: mobile
+    cards:
+      # Compact status
+      - type: glance
+        entities:
+          - binary_sensor.clear_dark_sky_clear_sky_tonight
+          - sensor.clear_dark_sky_clear_hours_tonight
+          - sensor.clear_dark_sky_observing_quality
+        show_name: true
+        show_state: true
+
+      # Chart image
+      - type: picture
+        image: /api/camera_proxy/camera.clear_dark_sky_chart
+        tap_action:
+          action: url
+          url_path: https://www.cleardarksky.com
+
+      # Quick timing info
+      - type: entities
+        entities:
+          - sensor.clear_dark_sky_astronomical_dusk
+          - sensor.clear_dark_sky_astronomical_dawn
+
+# ============================================
+# OBSERVATORY CONTROL DASHBOARD
+# ============================================
+title: Observatory Control
+views:
+  - title: Control
+    path: control
+    cards:
+      # Current conditions
+      - type: horizontal-stack
+        cards:
+          - type: entity
+            entity: binary_sensor.clear_dark_sky_clear_sky_tonight
+          - type: entity
+            entity: binary_sensor.clear_dark_sky_astronomical_darkness
+
+      # Manual controls (assumes you have these entities)
+      - type: entities
+        title: Manual Control
+        entities:
+          - input_boolean.observatory_auto_mode
+          - cover.observatory_roof
+          - switch.observatory_power
+          - switch.observatory_mount
+          - switch.observatory_camera_cooling
+
+      # Quick action buttons
+      - type: horizontal-stack
+        cards:
+          - type: button
+            name: Open Observatory
+            icon: mdi:arrow-up-circle
+            tap_action:
+              action: call-service
+              service: script.open_observatory_roof
+          - type: button
+            name: Close Observatory
+            icon: mdi:arrow-down-circle
+            tap_action:
+              action: call-service
+              service: script.close_observatory_roof
+
+# ============================================
+# TEMPLATE SENSORS FOR ENHANCED FUNCTIONALITY
+# ============================================
+
+# Add these to your configuration.yaml or templates.yaml
+
+template:
+  - sensor:
+      # Countdown to darkness
+      - name: "Time Until Darkness"
+        unique_id: time_until_darkness
+        icon: mdi:clock-outline
+        state: >
+          {% set dusk = states('sensor.clear_dark_sky_astronomical_dusk') | as_datetime %}
+          {% if dusk %}
+            {% set diff = (dusk - now()).total_seconds() %}
+            {% if diff > 0 %}
+              {% set hours = (diff / 3600) | int %}
+              {% set minutes = ((diff % 3600) / 60) | int %}
+              {{ hours }}h {{ minutes }}m
+            {% else %}
+              Now
+            {% endif %}
+          {% else %}
+            Unknown
+          {% endif %}
+
+      # Clear percentage
+      - name: "Clear Percentage Tonight"
+        unique_id: clear_percentage_tonight
+        icon: mdi:percent
+        unit_of_measurement: "%"
+        state: >
+          {% set clear = states('sensor.clear_dark_sky_clear_hours_tonight') | float(0) %}
+          {% set dark = states('sensor.clear_dark_sky_darkness_hours') | float(1) %}
+          {{ ((clear / dark) * 100) | round(0) }}
+
+      # Observing recommendation
+      - name: "Observing Recommendation"
+        unique_id: observing_recommendation
+        icon: mdi:telescope
+        state: >
+          {% set quality = states('sensor.clear_dark_sky_observing_quality') %}
+          {% set hours = states('sensor.clear_dark_sky_clear_hours_tonight') | float(0) %}
+          {% if quality == 'Excellent' %}
+            Perfect for deep sky imaging
+          {% elif quality == 'Good' and hours >= 4 %}
+            Good for most targets
+          {% elif quality == 'Fair' %}
+            Visual observing or bright targets
+          {% else %}
+            Consider equipment maintenance
+          {% endif %}
+
+  - binary_sensor:
+      # Imaging session viable
+      - name: "Imaging Session Viable"
+        unique_id: imaging_session_viable
+        icon: mdi:camera
+        state: >
+          {{ states('sensor.clear_dark_sky_clear_hours_tonight') | float(0) >= 3 and
+             is_state('sensor.clear_dark_sky_observing_quality', ['Good', 'Excellent']) }}
+
+# ============================================
+# INPUT HELPERS
+# ============================================
+
+# Add these to your configuration.yaml
+
+input_boolean:
+  observatory_auto_mode:
+    name: Observatory Auto Mode
+    icon: mdi:auto-fix
+
+input_text:
+  imaging_recommendation:
+    name: Imaging Recommendation
+    initial: "No data yet"
+    max: 255
+
+input_number:
+  minimum_clear_hours:
+    name: Minimum Clear Hours for Auto Open
+    min: 1
+    max: 12
+    step: 0.5
+    initial: 3
+    unit_of_measurement: hours
+    icon: mdi:clock-outline

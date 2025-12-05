@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Clear Dark Sky",
+        "description": "Set up Clear Dark Sky astronomy forecast integration.\n\n{chart_help}",
+        "data": {
+          "name": "Name",
+          "chart_key": "Chart Key",
+          "latitude": "Latitude",
+          "longitude": "Longitude"
+        }
+      }
+    },
+    "error": {
+      "invalid_chart_key": "Invalid chart key. Please verify the chart exists at cleardarksky.com",
+      "cannot_connect": "Unable to connect to Clear Dark Sky",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This chart is already configured"
+    }
+  }
+}

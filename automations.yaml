@@ -1,0 +1,265 @@
+# Example Automations for Clear Dark Sky Integration
+
+# ============================================
+# NOTIFICATION AUTOMATIONS
+# ============================================
+
+# Notify when clear skies are forecasted for tonight
+- alias: "Clear Skies Tonight Notification"
+  description: "Send notification when clear observing conditions are forecasted"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.clear_dark_sky_clear_sky_tonight
+      to: "on"
+    - platform: time
+      at: "15:00:00"  # Check again at 3 PM
+  condition:
+    - condition: state
+      entity_id: binary_sensor.clear_dark_sky_clear_sky_tonight
+      state: "on"
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "🌟 Clear Skies Tonight!"
+        message: >
+          Observing quality: {{ states('sensor.clear_dark_sky_observing_quality') }}
+          Clear hours: {{ states('sensor.clear_dark_sky_clear_hours_tonight') }}
+          Darkness: {{ states('sensor.clear_dark_sky_astronomical_dusk') | as_timestamp | timestamp_custom('%I:%M %p') }} 
+          to {{ states('sensor.clear_dark_sky_astronomical_dawn') | as_timestamp | timestamp_custom('%I:%M %p') }}
+        data:
+          url: "https://www.cleardarksky.com"
+          actions:
+            - action: "VIEW_CHART"
+              title: "View Chart"
+
+# Notify when excellent observing conditions are expected
+- alias: "Excellent Observing Conditions Alert"
+  description: "Alert when observing quality is excellent"
+  trigger:
+    - platform: state
+      entity_id: sensor.clear_dark_sky_observing_quality
+      to: "Excellent"
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "⭐ Excellent Observing Tonight!"
+        message: "Tonight looks perfect for astronomy! {{ states('sensor.clear_dark_sky_clear_hours_tonight') }} hours of clear skies expected."
+        data:
+          tag: "astronomy_alert"
+          priority: high
+
+# ============================================
+# OBSERVATORY CONTROL AUTOMATIONS
+# ============================================
+
+# Automatically open observatory at dusk if clear
+- alias: "Auto Open Observatory at Dusk"
+  description: "Open observatory roof when astronomical darkness begins and skies are clear"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.clear_dark_sky_astronomical_darkness
+      to: "on"
+  condition:
+    - condition: state
+      entity_id: binary_sensor.clear_dark_sky_good_observing_conditions
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.observatory_auto_mode
+      state: "on"
+  action:
+    - service: script.open_observatory_roof
+    - service: switch.turn_on
+      entity_id: 
+        - switch.observatory_power
+        - switch.observatory_mount
+        - switch.observatory_camera_cooling
+    - service: notify.mobile_app
+      data:
+        title: "Observatory Opened"
+        message: "Observatory automatically opened due to good conditions."
+
+# Close observatory at dawn
+- alias: "Close Observatory at Dawn"
+  description: "Close observatory when astronomical darkness ends"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.clear_dark_sky_astronomical_darkness
+      to: "off"
+  condition:
+    - condition: state
+      entity_id: input_boolean.observatory_auto_mode
+      state: "on"
+  action:
+    - service: script.park_telescope
+    - delay: "00:05:00"  # Wait 5 minutes for parking
+    - service: script.close_observatory_roof
+    - service: switch.turn_off
+      entity_id:
+        - switch.observatory_mount
+        - switch.observatory_camera_cooling
+    - service: notify.mobile_app
+      data:
+        title: "Observatory Closed"
+        message: "Observatory automatically closed at dawn."
+
+# Emergency close if weather deteriorates
+- alias: "Emergency Close Observatory"
+  description: "Close observatory if clear sky forecast changes to cloudy"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.clear_dark_sky_clear_sky_tonight
+      to: "off"
+  condition:
+    - condition: state
+      entity_id: binary_sensor.clear_dark_sky_astronomical_darkness
+      state: "on"
+    - condition: state
+      entity_id: cover.observatory_roof
+      state: "open"
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "⚠️ Weather Alert"
+        message: "Closing observatory - forecast changed to cloudy!"
+        data:
+          priority: high
+    - service: script.emergency_close_observatory
+
+# ============================================
+# EQUIPMENT PREP AUTOMATIONS
+# ============================================
+
+# Pre-cool camera when good night expected
+- alias: "Pre-cool Camera for Observing"
+  description: "Start camera cooling 2 hours before dusk on clear nights"
+  trigger:
+    - platform: template
+      value_template: >
+        {{ (as_timestamp(states('sensor.clear_dark_sky_astronomical_dusk')) - 
+            as_timestamp(now())) < 7200 and
+           (as_timestamp(states('sensor.clear_dark_sky_astronomical_dusk')) - 
+            as_timestamp(now())) > 7100 }}
+  condition:
+    - condition: state
+      entity_id: binary_sensor.clear_dark_sky_clear_sky_tonight
+      state: "on"
+  action:
+    - service: switch.turn_on
+      entity_id: switch.observatory_camera_cooling
+    - service: notify.mobile_app
+      data:
+        title: "Camera Pre-cooling Started"
+        message: "Camera cooling started for tonight's session."
+
+# ============================================
+# PLANNING AUTOMATIONS
+# ============================================
+
+# Daily astronomy forecast summary
+- alias: "Daily Astronomy Forecast"
+  description: "Send daily forecast summary at noon"
+  trigger:
+    - platform: time
+      at: "12:00:00"
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "Tonight's Astronomy Forecast"
+        message: >
+          {% if is_state('binary_sensor.clear_dark_sky_clear_sky_tonight', 'on') %}
+          ✅ Clear skies expected tonight!
+          {% else %}
+          ❌ Cloudy conditions expected tonight.
+          {% endif %}
+          
+          Quality: {{ states('sensor.clear_dark_sky_observing_quality') }}
+          Clear hours: {{ states('sensor.clear_dark_sky_clear_hours_tonight') }}
+          Darkness: {{ states('sensor.clear_dark_sky_darkness_hours') }} hours
+          
+          Dusk: {{ states('sensor.clear_dark_sky_astronomical_dusk') | as_timestamp | timestamp_custom('%I:%M %p') }}
+          Dawn: {{ states('sensor.clear_dark_sky_astronomical_dawn') | as_timestamp | timestamp_custom('%I:%M %p') }}
+
+# Update dashboard when forecast updates
+- alias: "Update Astronomy Dashboard"
+  description: "Trigger dashboard update when forecast data refreshes"
+  trigger:
+    - platform: state
+      entity_id: sensor.clear_dark_sky_clear_hours_tonight
+  action:
+    - service: script.update_astronomy_dashboard
+
+# ============================================
+# ASTROPHOTOGRAPHY SESSION PLANNER
+# ============================================
+
+# Suggest imaging targets based on clear hours
+- alias: "Imaging Session Planner"
+  description: "Suggest whether to do long or short sessions based on forecast"
+  trigger:
+    - platform: state
+      entity_id: sensor.clear_dark_sky_clear_hours_tonight
+  condition:
+    - condition: state
+      entity_id: binary_sensor.clear_dark_sky_clear_sky_tonight
+      state: "on"
+  action:
+    - service: input_text.set_value
+      data:
+        entity_id: input_text.imaging_recommendation
+        value: >
+          {% set hours = states('sensor.clear_dark_sky_clear_hours_tonight') | float %}
+          {% if hours >= 6 %}
+          Long session recommended - {{ hours }} clear hours available. 
+          Consider narrowband or faint targets.
+          {% elif hours >= 4 %}
+          Medium session - {{ hours }} clear hours. 
+          Good for bright targets or continued projects.
+          {% elif hours >= 2 %}
+          Short session - {{ hours }} clear hours. 
+          Focus on bright targets or testing.
+          {% else %}
+          Limited time - Consider visual observing or equipment testing.
+          {% endif %}
+
+# ============================================
+# HELPER SCRIPTS (Referenced Above)
+# ============================================
+
+script:
+  open_observatory_roof:
+    sequence:
+      - service: cover.open_cover
+        entity_id: cover.observatory_roof
+      - wait_template: "{{ is_state('cover.observatory_roof', 'open') }}"
+        timeout: "00:05:00"
+
+  close_observatory_roof:
+    sequence:
+      - service: cover.close_cover
+        entity_id: cover.observatory_roof
+      - wait_template: "{{ is_state('cover.observatory_roof', 'closed') }}"
+        timeout: "00:05:00"
+
+  park_telescope:
+    sequence:
+      - service: button.press
+        entity_id: button.telescope_park
+
+  emergency_close_observatory:
+    sequence:
+      - service: script.park_telescope
+      - delay: "00:02:00"
+      - service: script.close_observatory_roof
+      - service: switch.turn_off
+        entity_id:
+          - switch.observatory_mount
+          - switch.observatory_camera_cooling
+          - switch.observatory_power
+
+  update_astronomy_dashboard:
+    sequence:
+      - service: homeassistant.update_entity
+        entity_id: 
+          - sensor.moon_phase
+          - sensor.sun_next_rising
+          - sensor.sun_next_setting

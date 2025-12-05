@@ -1,0 +1,9 @@
+{
+  "name": "Clear Dark Sky",
+  "content_in_root": false,
+  "filename": "cleardarksky",
+  "render_readme": true,
+  "domains": ["sensor", "binary_sensor", "camera"],
+  "iot_class": "cloud_polling",
+  "homeassistant": "2023.9.0"
+}
