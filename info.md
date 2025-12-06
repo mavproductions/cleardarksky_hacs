@@ -1,7 +1,7 @@
 # Clear Dark Sky for Home Assistant
 
 {% if installed %}
-## Changes in v1.2.7
+## Changes in v1.2.8
 
 ### Critical Fix
 - **Fixed integration crash**: Resolved sun calculation error that prevented the integration from loading
