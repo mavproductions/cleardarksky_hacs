@@ -223,6 +223,23 @@ If sensors show poor/cloudy when skies are actually clear:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+### For Maintainers: Creating a Release
+
+See [RELEASE.md](RELEASE.md) for detailed release instructions.
+
+**Quick release:**
+```powershell
+# Windows
+.\release.ps1 1.2.1
+git push origin main --tags
+
+# Linux/Mac/WSL
+./release.sh 1.2.1
+git push origin main --tags
+```
+
+GitHub Actions will automatically create the release and notify HACS.
+
 ## Support
 
 - 🐛 **Bug Reports**: [GitHub Issues](https://github.com/mavproductions/cleardarksky_hacs/issues)
