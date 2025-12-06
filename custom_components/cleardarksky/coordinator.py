@@ -17,6 +17,14 @@ from homeassistant.helpers import sun
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+try:
+    from astral import moon, Observer
+    from astral.sun import elevation as sun_elevation
+    ASTRAL_AVAILABLE = True
+except ImportError:
+    ASTRAL_AVAILABLE = False
+    _LOGGER.warning("Astral library not available - moon calculations disabled")
+
 from .const import (
     CONF_CHART_KEY,
     DOMAIN,
@@ -159,6 +167,10 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                     data.get('forecast', []), sun_data
                 )
                 data['clear_hours_total'] = clear_hours_tonight
+
+                # Calculate moon data
+                moon_data = await self._get_moon_data()
+                data.update(moon_data)
 
                 return data
                 
@@ -394,6 +406,67 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 'astronomical_dusk': None,
                 'astronomical_dawn': None,
                 'darkness_hours': 0,
+            }
+
+    async def _get_moon_data(self) -> dict:
+        """Calculate moon position and illumination data."""
+        if not ASTRAL_AVAILABLE:
+            return {
+                'moon_altitude': 0,
+                'moon_illumination': 0,
+                'sun_moon_separation': 0,
+            }
+
+        try:
+            now = dt_util.now()
+            observer = Observer(latitude=self.latitude, longitude=self.longitude)
+
+            # Calculate moon position
+            moon_altitude = moon.elevation(observer, now)
+            moon_azimuth = moon.azimuth(observer, now)
+
+            # Calculate moon phase and illumination
+            moon_phase = moon.phase(now)  # Returns 0-27.99 (0=new, 14=full)
+            # Convert phase to illumination percentage
+            # Illumination peaks at full moon (phase 14) and is 0 at new moon (phase 0/28)
+            import math
+            moon_illumination = (1 - math.cos(moon_phase * math.pi / 14)) / 2 * 100
+
+            # Calculate sun position for separation
+            sun_altitude = sun_elevation(observer, now)
+            sun_azimuth = sun.get_azimuth(self.hass, dt_util.utcnow())
+
+            # Calculate angular separation between sun and moon
+            # Using spherical law of cosines
+            separation = math.degrees(
+                math.acos(
+                    math.sin(math.radians(sun_altitude)) * math.sin(math.radians(moon_altitude)) +
+                    math.cos(math.radians(sun_altitude)) * math.cos(math.radians(moon_altitude)) *
+                    math.cos(math.radians(abs(sun_azimuth - moon_azimuth)))
+                )
+            )
+
+            _LOGGER.warning(
+                "🌙 Moon data: Altitude=%.1f°, Illumination=%.1f%%, Sun separation=%.1f°",
+                moon_altitude,
+                moon_illumination,
+                separation
+            )
+
+            return {
+                'moon_altitude': round(moon_altitude, 1),
+                'moon_illumination': round(moon_illumination, 1),
+                'sun_moon_separation': round(separation, 1),
+                'moon_azimuth': round(moon_azimuth, 1),
+                'sun_altitude': round(sun_altitude, 1),
+            }
+
+        except Exception as err:
+            _LOGGER.error("Error calculating moon data: %s", err)
+            return {
+                'moon_altitude': 0,
+                'moon_illumination': 0,
+                'sun_moon_separation': 0,
             }
 
     @property

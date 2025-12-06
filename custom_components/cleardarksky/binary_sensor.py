@@ -30,6 +30,19 @@ class ClearDarkSkyBinarySensorEntityDescription(BinarySensorEntityDescription):
 
 BINARY_SENSOR_TYPES: tuple[ClearDarkSkyBinarySensorEntityDescription, ...] = (
     ClearDarkSkyBinarySensorEntityDescription(
+        key="day_moon_visible",
+        name="Day Moon Visible",
+        icon="mdi:weather-sunny-off",
+        value_fn=lambda data: _is_day_moon_visible(data),
+        attr_fn=lambda data: {
+            'moon_altitude': data.get('moon_altitude', 0),
+            'moon_illumination': data.get('moon_illumination', 0),
+            'sun_separation': data.get('sun_moon_separation', 0),
+            'cloud_cover': data.get('current_cloud_cover', 0),
+            'status': _get_day_moon_status(data),
+        },
+    ),
+    ClearDarkSkyBinarySensorEntityDescription(
         key="clear_sky_tonight",
         name="Clear Sky Tonight",
         icon="mdi:weather-night",
@@ -61,6 +74,62 @@ BINARY_SENSOR_TYPES: tuple[ClearDarkSkyBinarySensorEntityDescription, ...] = (
         },
     ),
 )
+
+
+def _is_day_moon_visible(data: dict) -> bool:
+    """Determine if the moon is visible during daylight hours."""
+    sun_altitude = data.get('sun_altitude', -90)
+    moon_altitude = data.get('moon_altitude', -90)
+    moon_illumination = data.get('moon_illumination', 0)
+    sun_moon_separation = data.get('sun_moon_separation', 0)
+    cloud_cover = data.get('current_cloud_cover', 100)
+
+    # All conditions must be true for moon to be visible during day
+    is_daytime = sun_altitude > 0
+    moon_above_horizon = moon_altitude > 5  # Account for horizon haze
+    moon_bright_enough = moon_illumination > 10  # Not too close to new moon
+    far_from_sun = sun_moon_separation > 15  # Not washed out by sun
+    sky_clear_enough = cloud_cover < 70  # Not too cloudy
+
+    return (
+        is_daytime and
+        moon_above_horizon and
+        moon_bright_enough and
+        far_from_sun and
+        sky_clear_enough
+    )
+
+
+def _get_day_moon_status(data: dict) -> str:
+    """Get status message explaining moon visibility."""
+    if _is_day_moon_visible(data):
+        return "Visible"
+
+    # Build list of blocking reasons
+    reasons = []
+
+    sun_altitude = data.get('sun_altitude', -90)
+    moon_altitude = data.get('moon_altitude', -90)
+    moon_illumination = data.get('moon_illumination', 0)
+    sun_moon_separation = data.get('sun_moon_separation', 0)
+    cloud_cover = data.get('current_cloud_cover', 100)
+
+    if sun_altitude <= 0:
+        reasons.append("Nighttime (sun below horizon)")
+
+    if moon_altitude <= 5:
+        reasons.append(f"Moon below horizon ({moon_altitude:.1f}°)")
+
+    if moon_illumination <= 10:
+        reasons.append(f"Moon too dim ({moon_illumination:.0f}% illuminated)")
+
+    if sun_moon_separation <= 15:
+        reasons.append(f"Too close to sun ({sun_moon_separation:.0f}° separation)")
+
+    if cloud_cover >= 70:
+        reasons.append(f"Too cloudy ({cloud_cover:.0f}% cloud cover)")
+
+    return "; ".join(reasons) if reasons else "Unknown"
 
 
 def _is_clear_tonight(data: dict) -> bool:
