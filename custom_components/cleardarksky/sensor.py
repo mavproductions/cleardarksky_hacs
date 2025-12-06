@@ -62,10 +62,22 @@ SENSOR_TYPES: tuple[ClearDarkSkySensorEntityDescription, ...] = (
         value_fn=lambda data: data.get('astronomical_dawn'),
     ),
     ClearDarkSkySensorEntityDescription(
-        key="observing_quality",
-        name="Observing Quality",
+        key="observing_quality_current",
+        name="Current Observing Quality",
         icon="mdi:telescope",
-        value_fn=lambda data: _calculate_quality(data),
+        value_fn=lambda data: _calculate_current_quality(data),
+        attr_fn=lambda data: {
+            'cloud_cover': data.get('current_cloud_cover', 0),
+            'transparency': data.get('current_transparency', 0),
+            'seeing': data.get('current_seeing', 0),
+            'quality_score': _calculate_quality_score(data),
+        },
+    ),
+    ClearDarkSkySensorEntityDescription(
+        key="observing_quality_tonight",
+        name="Tonight's Observing Forecast",
+        icon="mdi:weather-night",
+        value_fn=lambda data: _calculate_tonight_quality(data),
         attr_fn=lambda data: {
             'clear_hours': data.get('clear_hours_total', 0),
             'darkness_hours': data.get('darkness_hours', 0),
@@ -159,11 +171,46 @@ SENSOR_TYPES: tuple[ClearDarkSkySensorEntityDescription, ...] = (
 )
 
 
-def _calculate_quality(data: dict) -> str:
-    """Calculate overall observing quality."""
+def _calculate_current_quality(data: dict) -> str:
+    """Calculate current observing quality based on real-time conditions.
+
+    Combines cloud cover, transparency, and seeing into overall quality rating.
+    Does not consider darkness/time of day.
+    """
+    cloud = data.get('current_cloud_cover', 100)
+    transparency = data.get('current_transparency', 0)
+    seeing = data.get('current_seeing', 0)
+
+    # Calculate quality score (0-100)
+    # Invert cloud cover so higher is better, then average all three
+    score = ((100 - cloud) + transparency + seeing) / 3
+
+    if score >= 80:
+        return "Excellent"
+    elif score >= 60:
+        return "Good"
+    elif score >= 40:
+        return "Fair"
+    else:
+        return "Poor"
+
+
+def _calculate_quality_score(data: dict) -> float:
+    """Calculate numeric quality score (0-100) for current conditions."""
+    cloud = data.get('current_cloud_cover', 100)
+    transparency = data.get('current_transparency', 0)
+    seeing = data.get('current_seeing', 0)
+    return round(((100 - cloud) + transparency + seeing) / 3, 1)
+
+
+def _calculate_tonight_quality(data: dict) -> str:
+    """Calculate tonight's observing forecast quality.
+
+    Based on forecasted clear hours during tonight's darkness period.
+    """
     clear_hours = data.get('clear_hours_total', 0)
     darkness_hours = data.get('darkness_hours', 0)
-    
+
     if clear_hours == 0:
         return "Poor"
     elif clear_hours >= darkness_hours * 0.8:
