@@ -246,7 +246,6 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             avg_cloud = sum(f.get('cloud_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
             avg_transparency = sum(f.get('transparency_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
             avg_seeing = sum(f.get('seeing_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
-            avg_wind = sum(f.get('wind_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
 
             # Log summary of current conditions
             _LOGGER.warning(
@@ -265,11 +264,9 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 'current_transparency': current.get('transparency_value', 0),
                 'current_seeing': current.get('seeing_value', 0),
                 'current_darkness': current.get('darkness_value', 0),
-                'current_wind': current.get('wind_value', 0),
                 'avg_cloud_cover': round(avg_cloud, 1),
                 'avg_transparency': round(avg_transparency, 1),
                 'avg_seeing': round(avg_seeing, 1),
-                'avg_wind': round(avg_wind, 1),
                 'last_updated': dt_util.utcnow(),
                 'chart_url': self.chart_url,
             }
@@ -283,11 +280,9 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 'current_transparency': 0,
                 'current_seeing': 0,
                 'current_darkness': 0,
-                'current_wind': 0,
                 'avg_cloud_cover': 0,
                 'avg_transparency': 0,
                 'avg_seeing': 0,
-                'avg_wind': 0,
                 'last_updated': dt_util.utcnow(),
                 'chart_url': self.chart_url,
             }

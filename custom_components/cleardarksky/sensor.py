@@ -156,30 +156,6 @@ SENSOR_TYPES: tuple[ClearDarkSkySensorEntityDescription, ...] = (
             'rating': _get_darkness_rating(data.get('current_darkness', 0)),
         },
     ),
-    ClearDarkSkySensorEntityDescription(
-        key="wind_current",
-        name="Wind (Current)",
-        icon="mdi:weather-windy",
-        native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: round(data.get('current_wind', 0), 1),
-        attr_fn=lambda data: {
-            'average_forecast': data.get('avg_wind', 0),
-            'rating': _get_wind_rating(data.get('current_wind', 0)),
-        },
-    ),
-    ClearDarkSkySensorEntityDescription(
-        key="wind_average",
-        name="Wind (Average Forecast)",
-        icon="mdi:weather-windy-variant",
-        native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: round(data.get('avg_wind', 0), 1),
-        attr_fn=lambda data: {
-            'current': data.get('current_wind', 0),
-            'rating': _get_wind_rating(data.get('avg_wind', 0)),
-        },
-    ),
 )
 
 
@@ -252,20 +228,6 @@ def _get_darkness_rating(value: float) -> str:
         return "Dusk/Dawn"
     else:
         return "Daylight"
-
-
-def _get_wind_rating(value: float) -> str:
-    """Get descriptive rating for wind percentage (higher = calmer)."""
-    if value >= 80:
-        return "Calm"
-    elif value >= 60:
-        return "Light"
-    elif value >= 40:
-        return "Moderate"
-    elif value >= 20:
-        return "Breezy"
-    else:
-        return "Windy"
 
 
 async def async_setup_entry(
