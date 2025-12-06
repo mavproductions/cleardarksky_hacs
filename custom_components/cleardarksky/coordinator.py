@@ -13,7 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.sun import get_astral_location
+from homeassistant.helpers import sun
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -321,34 +321,44 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
     async def _get_sun_data(self) -> dict:
         """Calculate sun rise/set times and darkness periods."""
         try:
-            location = get_astral_location(self.hass)
             now = dt_util.now()
-            
-            # Get today's sunset and next sunrise
-            sunset = location.sunset(now, local=True)
-            sunrise = location.sunrise(now + timedelta(days=1), local=True)
-            
-            # If sunset already passed, get tomorrow's
-            if sunset < now:
-                sunset = location.sunset(now + timedelta(days=1), local=True)
-                sunrise = location.sunrise(now + timedelta(days=2), local=True)
-            
-            # Calculate astronomical twilight (sun 18° below horizon)
-            # This is when true darkness begins for astronomy
-            astronomical_dusk = sunset + timedelta(minutes=90)  # Approximate
-            astronomical_dawn = sunrise - timedelta(minutes=90)  # Approximate
-            
-            darkness_hours = (astronomical_dawn - astronomical_dusk).total_seconds() / 3600
-            
-            return {
-                'sunset': sunset,
-                'sunrise': sunrise,
-                'astronomical_dusk': astronomical_dusk,
-                'astronomical_dawn': astronomical_dawn,
-                'darkness_hours': darkness_hours,
-            }
+
+            # Get next sunset and sunrise using Home Assistant sun helpers
+            next_sunset = sun.get_astral_event_next(
+                self.hass, "sunset", dt_util.utcnow()
+            )
+            next_sunrise = sun.get_astral_event_next(
+                self.hass, "sunrise", dt_util.utcnow()
+            )
+
+            # If we're before sunset today, use today's sunset
+            # Otherwise use tomorrow's
+            if next_sunset and next_sunrise:
+                # Approximate astronomical twilight (sun 18° below horizon)
+                # Civil twilight is ~30 min, nautical ~60 min, astronomical ~90 min after sunset
+                astronomical_dusk = next_sunset + timedelta(minutes=90)
+                astronomical_dawn = next_sunrise - timedelta(minutes=90)
+
+                # Calculate darkness hours
+                if astronomical_dawn > astronomical_dusk:
+                    darkness_hours = (astronomical_dawn - astronomical_dusk).total_seconds() / 3600
+                else:
+                    # Handle case where it's already past dusk
+                    darkness_hours = 8.0  # Default reasonable value
+
+                return {
+                    'sunset': next_sunset,
+                    'sunrise': next_sunrise,
+                    'astronomical_dusk': astronomical_dusk,
+                    'astronomical_dawn': astronomical_dawn,
+                    'darkness_hours': max(0, darkness_hours),
+                }
+            else:
+                raise ValueError("Could not calculate sun times")
+
         except Exception as err:
             _LOGGER.error("Error calculating sun data: %s", err)
+            _LOGGER.debug("Latitude: %s, Longitude: %s", self.latitude, self.longitude)
             return {
                 'sunset': None,
                 'sunrise': None,

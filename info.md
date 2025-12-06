@@ -1,7 +1,13 @@
 # Clear Dark Sky for Home Assistant
 
 {% if installed %}
-## Changes in v1.2.6
+## Changes in v1.2.7
+
+### Critical Fix
+- **Fixed integration crash**: Resolved sun calculation error that prevented the integration from loading
+- Integration now properly loads and updates chart data
+
+### From v1.2.6
 
 ### Critical Bug Fixes
 - **Fixed math overflow**: Cloud cover can no longer exceed 100% (was reporting values like 175%)
