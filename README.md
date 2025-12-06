@@ -6,20 +6,20 @@
 
 This custom component integrates astronomy forecast data from [ClearDarkSky.com](https://www.cleardarksky.com/) into Home Assistant, providing specialized sensors essential for hobby astronomers, stargazers, and anyone interested in optimal viewing conditions.
 
-## What's New in v1.2.0
+## What's New in v1.3.0
 
 ### Major Improvements
-- **Enhanced Color Mapping Algorithm**: Completely rewritten chart parsing with continuous/gradual color-to-value mapping for significantly more accurate condition readings
-- **Better Clear Sky Detection**: Fixed issue where clear dark blue skies were incorrectly reported as cloudy/poor conditions
-- **Improved Blue Saturation Logic**: Now uses `b / (r + g + b)` for better color detection vs simple brightness
-- **Debug Logging**: Added comprehensive logging to help troubleshoot parsing accuracy
+- **Discrete Color Matching**: Completely rewritten chart parsing using exact ClearDarkSky color codes with Euclidean distance algorithm
+- **New Sensor**: "Current Observing Quality" - Real-time quality based on current cloud cover, transparency, and seeing
+- **Renamed Sensor**: "Observing Quality" → "Tonight's Observing Forecast" for clarity
+- **Removed**: Removed wind sensors
 
 ## Features ✨
 
 - **Seeing & Transparency**: Tracks atmospheric seeing (star twinkling/steadiness) and sky transparency (clarity)
 - **Cloud Cover**: Provides hourly forecast for cloud coverage with percentage-based ratings
 - **Darkness Calculations**: Automatic astronomical twilight and darkness hours tracking
-- **Wind Conditions**: Monitor wind levels that affect telescope stability
+- **Quality Ratings**: Dual quality sensors for current conditions and tonight's forecast
 - **Binary Sensors**: Quick "is tonight good for observing?" sensors for automation
 - **Visual Chart Display**: Camera entity showing the full ClearDarkSky forecast chart
 - **48-Hour Forecast**: Hourly predictions for planning your observing sessions
@@ -76,7 +76,7 @@ The integration is configured entirely via the Home Assistant UI:
 
 ## Available Sensors 🔭
 
-### Numeric Sensors (15 total)
+### Numeric Sensors (14 total)
 
 | Sensor | Description | Unit | Example Rating |
 |--------|-------------|------|----------------|
@@ -84,6 +84,8 @@ The integration is configured entirely via the Home Assistant UI:
 | **Darkness Hours** | Total hours of astronomical darkness | hours | - |
 | **Astronomical Dusk** | Time when astronomical twilight ends | timestamp | - |
 | **Astronomical Dawn** | Time when astronomical twilight begins | timestamp | - |
+| **Current Observing Quality** | Real-time quality based on current conditions | - | Excellent / Good / Fair / Poor |
+| **Tonight's Observing Forecast** | Forecast quality for tonight's darkness hours | - | Excellent / Good / Fair / Poor |
 | **Cloud Cover (Current)** | Current cloud coverage percentage | % | Clear / Mostly Clear / Partly Cloudy / Mostly Cloudy / Overcast |
 | **Cloud Cover (Average)** | Average cloud coverage over 48h forecast | % | (same ratings) |
 | **Transparency (Current)** | Current atmospheric transparency | % | Excellent / Good / Fair / Poor / Very Poor |
@@ -91,9 +93,6 @@ The integration is configured entirely via the Home Assistant UI:
 | **Seeing (Current)** | Current atmospheric steadiness | % | Excellent / Good / Fair / Poor / Very Poor |
 | **Seeing (Average)** | Average seeing over 48h forecast | % | (same ratings) |
 | **Darkness (Current)** | Current darkness level | % | Dark / Twilight / Dusk-Dawn / Daylight |
-| **Wind (Current)** | Current wind conditions | % | Calm / Light / Moderate / Breezy / Windy |
-| **Wind (Average)** | Average wind over 48h forecast | % | (same ratings) |
-| **Observing Quality** | Overall observing quality rating | - | Excellent / Good / Fair / Poor |
 
 ### Binary Sensors (3 total)
 

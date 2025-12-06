@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-12-06
+
+### Added
+- **Discrete color matching**: Chart parsing now uses exact ClearDarkSky color palettes with Euclidean distance matching
+  - Cloud Cover: 11 discrete colors (0% to 100% in 10% increments)
+  - Transparency: 6 discrete levels (Too cloudy to forecast, Poor, Below average, Average, Above average, Excellent)
+  - Seeing: 6 discrete levels (Too cloudy to forecast, Bad 1/5, Poor 2/5, Average 3/5, Good 4/5, Excellent 5/5)
+  - Darkness: 15 discrete levels (magnitude scale from -4 daylight to 6.5 darkest)
+- **New sensor**: "Current Observing Quality" - Real-time quality based on current cloud cover, transparency, and seeing
+  - Provides numeric quality score (0-100) in attributes
+  - Ignores time of day/darkness - purely current conditions
+  - Quality ratings: Excellent (80+), Good (60-79), Fair (40-59), Poor (<40)
+
+### Changed
+- **BREAKING**: Renamed "Observing Quality" sensor to "Tonight's Observing Forecast" for clarity
+  - Entity ID changed from `observing_quality` to `observing_quality_tonight`
+  - Same forecast-based logic (clear hours vs darkness hours)
+  - Icon changed to `mdi:weather-night` to indicate forecast nature
+- **Major accuracy improvement**: Replaced continuous gradient color calculations with discrete color palette matching
+  - Now matches ClearDarkSky's actual discrete color system instead of interpolating
+  - Uses RGB color distance algorithm for precise color identification
+  - Significantly more accurate readings matching actual chart colors
+
+### Removed
+- **BREAKING**: Removed wind sensors per user request
+  - Removed "Wind (Current)" sensor
+  - Removed "Wind (Average Forecast)" sensor
+  - Wind data no longer calculated or stored
+  - Sensor count reduced from 15 to 14 regular sensors
+
+### Technical
+- Color matching uses Euclidean distance in RGB space to find nearest palette color
+- All ClearDarkSky discrete color values now defined as constants for maintainability
+- Chart parsing code simplified with removal of complex gradient calculations
+
 ## [1.2.8] - 2025-12-06
 
 ### Fixed

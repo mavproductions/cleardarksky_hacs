@@ -1,7 +1,26 @@
 # Clear Dark Sky for Home Assistant
 
 {% if installed %}
-## Changes in v1.2.8
+## Changes in v1.3.0
+
+### Major Improvements
+- **Discrete Color Matching**: Completely rewritten chart parsing using exact ClearDarkSky color palettes
+  - Cloud Cover: 11 discrete colors for precise readings
+  - Transparency/Seeing: 6 discrete levels matching actual chart values
+  - Darkness: 15 discrete levels on magnitude scale
+  - Uses Euclidean distance algorithm for accurate color identification
+
+### New Sensor
+- **Current Observing Quality**: Real-time quality based on current conditions
+  - Combines cloud cover, transparency, and seeing
+  - Includes numeric quality score (0-100) in attributes
+  - Ignores time of day - purely current conditions
+
+### Other Changes
+- **Renamed**: "Observing Quality" → "Tonight's Observing Forecast" (entity ID changed)
+- **Removed**: Wind sensors (Wind Current and Wind Average) no longer available
+
+### From v1.2.8
 
 ### Critical Fix
 - **Fixed integration crash**: Resolved sun calculation error that prevented the integration from loading
