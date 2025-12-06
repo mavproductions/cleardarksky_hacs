@@ -8,8 +8,9 @@
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "requirements": ["Pillow>=10.0.0", "aiohttp>=3.8.0"],
-  "version": "1.2.6"
+  "version": "1.2.7"
 }
+
 
 
 
