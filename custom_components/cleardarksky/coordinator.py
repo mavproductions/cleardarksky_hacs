@@ -80,7 +80,7 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
         """Parse the Clear Dark Sky chart image to extract forecast data."""
         try:
             img = Image.open(BytesIO(image_data))
-            
+
             # Clear Dark Sky charts are GIF images with specific structure
             # Chart layout (rows from top to bottom):
             # Row 1: Cloud Cover (dark blue=clear, light blue=cloudy, white=overcast)
@@ -88,13 +88,14 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             # Row 3: Seeing (dark blue=excellent, white=poor)
             # Row 4: Darkness (black=dark, blue=twilight, white=daylight)
             # Row 5: Wind (colors vary, darker=calmer)
-            
+
             # Convert to RGB if needed
             if img.mode != 'RGB':
                 img = img.convert('RGB')
-            
+
             width, height = img.size
-            
+            _LOGGER.debug("Chart image size: %dx%d", width, height)
+
             # Estimate row positions (percentages of image height)
             # These are approximate and may need adjustment based on chart version
             row_positions = {
@@ -104,41 +105,59 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 'darkness': int(height * 0.39),     # Darkness row
                 'wind': int(height * 0.47),         # Wind row
             }
-            
+            _LOGGER.debug("Sampling row positions: %s", row_positions)
+
             # Sample every hour position across the chart
             hours_to_sample = min(48, width // 10)
             forecast_data = []
-            
+
             for hour in range(hours_to_sample):
                 x_pos = int((width * 0.1) + (width * 0.8 * hour / hours_to_sample))
-                
+
                 if x_pos < width:
                     hour_data = {'hour': hour}
-                    
+
                     # Sample each row
                     for row_name, row_y in row_positions.items():
                         if row_y < height:
                             pixel = img.getpixel((x_pos, row_y))
                             r, g, b = pixel[:3] if len(pixel) >= 3 else (pixel, pixel, pixel)
-                            
+
                             hour_data[f'{row_name}_rgb'] = (r, g, b)
                             hour_data[f'{row_name}_value'] = self._calculate_condition_value(
                                 row_name, r, g, b
                             )
-                    
+
+                            # Debug log first 3 hours for troubleshooting
+                            if hour < 3:
+                                _LOGGER.debug(
+                                    "Hour %d, %s: RGB=(%d,%d,%d) -> Value=%.1f%%",
+                                    hour, row_name, r, g, b, hour_data[f'{row_name}_value']
+                                )
+
                     forecast_data.append(hour_data)
             
             # Calculate current conditions (first hour in forecast)
             current = forecast_data[0] if forecast_data else {}
-            
+
             # Calculate averages and totals
             clear_hours = sum(1 for f in forecast_data if f.get('cloud_value', 100) < 30)
-            
+
             avg_cloud = sum(f.get('cloud_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
             avg_transparency = sum(f.get('transparency_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
             avg_seeing = sum(f.get('seeing_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
             avg_wind = sum(f.get('wind_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
-            
+
+            # Log summary of current conditions
+            _LOGGER.info(
+                "Current conditions: Cloud=%.1f%%, Transparency=%.1f%%, Seeing=%.1f%%, Clear hours=%d/%d",
+                current.get('cloud_value', 0),
+                current.get('transparency_value', 0),
+                current.get('seeing_value', 0),
+                clear_hours,
+                hours_to_sample
+            )
+
             return {
                 'forecast': forecast_data,
                 'clear_hours_total': clear_hours,
@@ -174,82 +193,118 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             }
     
     def _calculate_condition_value(self, row_name: str, r: int, g: int, b: int) -> float:
-        """Calculate condition value (0-100%) based on pixel color."""
+        """Calculate condition value (0-100%) based on pixel color.
+
+        Uses continuous/gradual mapping instead of discrete thresholds for more accurate readings.
+        """
+        brightness = (r + g + b) / 3
+
         if row_name == 'cloud':
             # Dark blue = 0% (clear), White = 100% (overcast)
-            # Calculate based on brightness and blue dominance
-            brightness = (r + g + b) / 3
-            blue_dominance = b - ((r + g) / 2)
-            
-            # More white = more clouds
-            if brightness > 200:  # Very white
-                return 100.0
-            elif brightness > 150:
-                return 70.0
-            elif blue_dominance > 30:  # Dark blue
-                return 10.0
-            elif blue_dominance > 0:  # Medium blue
-                return 30.0
+            # Use a combination of brightness and blue saturation
+
+            # Calculate how "blue" the color is vs how "white/gray" it is
+            blue_saturation = b / max(1, (r + g + b))
+
+            # Very white/bright = overcast
+            if brightness > 220:
+                return 95.0 + (brightness - 220) / 35 * 5  # 95-100%
+
+            # High brightness with low blue = cloudy
+            if brightness > 180:
+                cloud_pct = 70 + (brightness - 180) / 40 * 25  # 70-95%
+                return max(70.0, min(95.0, cloud_pct))
+
+            # Medium brightness - check blue saturation
+            if brightness > 140:
+                # Less blue = more clouds
+                if blue_saturation < 0.35:
+                    return 50 + (180 - brightness) / 40 * 20  # 50-70%
+                else:
+                    return 30 + (180 - brightness) / 40 * 20  # 30-50%
+
+            # Lower brightness - likely clear if blue-tinted
+            if blue_saturation > 0.4:
+                # Dark blue = clear sky
+                return max(0.0, 20 - (140 - brightness) / 14)  # 0-20%
             else:
-                return 50.0
-                
+                # Dark but not blue = partially cloudy
+                return 25 + (140 - brightness) / 14 * 15  # 25-40%
+
         elif row_name == 'transparency':
             # Dark blue = 100% (excellent), White = 0% (poor)
-            brightness = (r + g + b) / 3
-            blue_dominance = b - ((r + g) / 2)
-            
-            if blue_dominance > 50:  # Very dark blue
-                return 100.0
-            elif blue_dominance > 20:
-                return 75.0
-            elif brightness < 150:
-                return 50.0
-            else:  # White/light
-                return 20.0
-                
+            # Transparency indicates atmospheric clarity
+
+            # Calculate blue saturation
+            blue_saturation = b / max(1, (r + g + b))
+
+            # Very dark blue = excellent transparency
+            if brightness < 100 and blue_saturation > 0.4:
+                return 90 + (100 - brightness) / 100 * 10  # 90-100%
+
+            # Dark blue = good transparency
+            if brightness < 140 and blue_saturation > 0.38:
+                return 70 + (140 - brightness) / 40 * 20  # 70-90%
+
+            # Medium blue = fair transparency
+            if brightness < 180:
+                if blue_saturation > 0.35:
+                    return 50 + (180 - brightness) / 40 * 20  # 50-70%
+                else:
+                    return 30 + (180 - brightness) / 40 * 20  # 30-50%
+
+            # Light/white = poor transparency
+            return max(0.0, 30 - (brightness - 180) / 75 * 30)  # 0-30%
+
         elif row_name == 'seeing':
             # Dark blue = 100% (excellent), White = 0% (poor)
-            brightness = (r + g + b) / 3
-            blue_dominance = b - ((r + g) / 2)
-            
-            if blue_dominance > 50:
-                return 100.0
-            elif blue_dominance > 20:
-                return 75.0
-            elif brightness < 150:
-                return 50.0
-            else:
-                return 20.0
-                
+            # Seeing indicates atmospheric steadiness
+            # Use same logic as transparency
+
+            blue_saturation = b / max(1, (r + g + b))
+
+            if brightness < 100 and blue_saturation > 0.4:
+                return 90 + (100 - brightness) / 100 * 10
+
+            if brightness < 140 and blue_saturation > 0.38:
+                return 70 + (140 - brightness) / 40 * 20
+
+            if brightness < 180:
+                if blue_saturation > 0.35:
+                    return 50 + (180 - brightness) / 40 * 20
+                else:
+                    return 30 + (180 - brightness) / 40 * 20
+
+            return max(0.0, 30 - (brightness - 180) / 75 * 30)
+
         elif row_name == 'darkness':
             # Black = 100% (dark), White = 0% (daylight)
-            brightness = (r + g + b) / 3
-            
-            if brightness < 50:  # Very dark/black
+            # Simple inverse brightness mapping
+
+            if brightness < 30:
                 return 100.0
-            elif brightness < 100:  # Dark blue
-                return 75.0
-            elif brightness < 150:  # Medium
-                return 50.0
-            else:  # Light/white
-                return 10.0
-                
+            elif brightness < 100:
+                return 100 - (brightness - 30) / 70 * 20  # 100-80%
+            elif brightness < 180:
+                return 80 - (brightness - 100) / 80 * 60  # 80-20%
+            else:
+                return max(0.0, 20 - (brightness - 180) / 75 * 20)  # 20-0%
+
         elif row_name == 'wind':
             # Darker colors = calmer, lighter = windier
-            # This is approximate as wind uses varied colors
-            brightness = (r + g + b) / 3
-            
-            if brightness < 80:  # Dark (calm)
-                return 90.0
+            # Use continuous mapping based on brightness
+
+            if brightness < 60:
+                return 95.0 + (60 - brightness) / 60 * 5  # 95-100%
             elif brightness < 120:
-                return 70.0
-            elif brightness < 160:
-                return 50.0
-            elif brightness < 200:
-                return 30.0
-            else:  # Very light (windy)
-                return 10.0
-        
+                return 70 + (120 - brightness) / 60 * 25  # 70-95%
+            elif brightness < 180:
+                return 40 + (180 - brightness) / 60 * 30  # 40-70%
+            elif brightness < 220:
+                return 15 + (220 - brightness) / 40 * 25  # 15-40%
+            else:
+                return max(0.0, 15 - (brightness - 220) / 35 * 15)  # 0-15%
+
         return 50.0  # Default
 
     async def _get_sun_data(self) -> dict:
