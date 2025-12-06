@@ -27,6 +27,11 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# This will fire when the file is imported
+_LOGGER.warning("=" * 80)
+_LOGGER.warning("🔥 COORDINATOR.PY LOADED - VERSION 1.2.8 - LOGGING ACTIVE 🔥")
+_LOGGER.warning("=" * 80)
+
 
 class ClearDarkSkyCoordinator(DataUpdateCoordinator):
     """Class to manage fetching Clear Dark Sky data."""
@@ -49,21 +54,26 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict:
         """Fetch data from Clear Dark Sky."""
+        _LOGGER.warning("🔄 UPDATE STARTED - Fetching chart from: %s", self.chart_url)
         session = async_get_clientsession(self.hass)
-        
+
         try:
             async with session.get(
                 self.chart_url, timeout=aiohttp.ClientTimeout(total=30)
             ) as response:
+                _LOGGER.warning("📥 Response status: %s", response.status)
                 if response.status != 200:
                     raise UpdateFailed(f"Error fetching data: {response.status}")
-                
+
                 self._image_data = await response.read()
-                
+                _LOGGER.warning("📊 Chart downloaded, size: %d bytes", len(self._image_data))
+
                 # Parse the chart image
+                _LOGGER.warning("🔍 Starting chart parsing...")
                 data = await self.hass.async_add_executor_job(
                     self._parse_chart_image, self._image_data
                 )
+                _LOGGER.warning("✅ Chart parsing completed!")
                 
                 # Calculate sun times
                 sun_data = await self._get_sun_data()
@@ -78,8 +88,10 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
 
     def _parse_chart_image(self, image_data: bytes) -> dict:
         """Parse the Clear Dark Sky chart image to extract forecast data."""
+        _LOGGER.warning("🎨 PARSE_CHART_IMAGE CALLED - Processing %d bytes", len(image_data))
         try:
             img = Image.open(BytesIO(image_data))
+            _LOGGER.warning("🖼️  Image opened successfully")
 
             # Clear Dark Sky charts are GIF images with specific structure
             # Chart layout (rows from top to bottom):
@@ -94,26 +106,31 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 img = img.convert('RGB')
 
             width, height = img.size
-            _LOGGER.info("Chart image size: %dx%d", width, height)
+            _LOGGER.warning("📐 Chart image size: %dx%d", width, height)
 
-            # Estimate row positions (percentages of image height)
-            # These are approximate and may need adjustment based on chart version
+            # Row positions based on actual chart analysis
+            # For 1270x276 chart: Cloud=83, Transparency=100, Seeing=116, Darkness=133
             row_positions = {
-                'cloud': int(height * 0.15),       # Cloud cover row
-                'transparency': int(height * 0.23), # Transparency row
-                'seeing': int(height * 0.31),       # Seeing row
-                'darkness': int(height * 0.39),     # Darkness row
-                'wind': int(height * 0.47),         # Wind row
+                'cloud': int(height * 0.30),       # Cloud cover row (~83px on 276px chart)
+                'transparency': int(height * 0.36), # Transparency row (~100px)
+                'seeing': int(height * 0.42),       # Seeing row (~116px)
+                'darkness': int(height * 0.48),     # Darkness row (~133px)
+                'wind': int(height * 0.54),         # Wind row (estimated)
             }
-            _LOGGER.info("Sampling row positions (Y coordinates): %s", row_positions)
-            _LOGGER.info("These percentages may need adjustment for your chart version")
+            _LOGGER.warning("📍 Sampling row positions (Y coordinates): %s", row_positions)
+            _LOGGER.warning("⚠️  These percentages may need adjustment for your chart version")
 
             # Sample every hour position across the chart
             hours_to_sample = min(48, width // 10)
             forecast_data = []
 
+            # ClearDarkSky charts: First data column at X=140 for 1270px chart (~11%)
+            # Forecast data starts around 11% from left
+            chart_start = width * 0.11  # Start at 11% where first column begins
+            chart_width = width * 0.84   # Use 84% of width for forecast data
+
             for hour in range(hours_to_sample):
-                x_pos = int((width * 0.1) + (width * 0.8 * hour / hours_to_sample))
+                x_pos = int(chart_start + (chart_width * hour / hours_to_sample))
 
                 if x_pos < width:
                     hour_data = {'hour': hour}
@@ -131,8 +148,8 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                             # Debug log first 3 hours for troubleshooting
                             if hour < 3:
                                 brightness = (r + g + b) / 3
-                                _LOGGER.info(
-                                    "Hour %d, %s at Y=%d, X=%d: RGB=(%d,%d,%d) brightness=%.1f -> Value=%.1f%%",
+                                _LOGGER.warning(
+                                    "🔢 Hour %d, %s at Y=%d, X=%d: RGB=(%d,%d,%d) brightness=%.1f -> Value=%.1f%%",
                                     hour, row_name, row_y, x_pos, r, g, b, brightness, value
                                 )
 
@@ -157,8 +174,8 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             avg_wind = sum(f.get('wind_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
 
             # Log summary of current conditions
-            _LOGGER.info(
-                "Current conditions: Cloud=%.1f%%, Transparency=%.1f%%, Seeing=%.1f%%, Clear hours=%d/%d",
+            _LOGGER.warning(
+                "📊 Current conditions: Cloud=%.1f%%, Transparency=%.1f%%, Seeing=%.1f%%, Clear hours=%d/%d",
                 current.get('cloud_value', 0),
                 current.get('transparency_value', 0),
                 current.get('seeing_value', 0),
