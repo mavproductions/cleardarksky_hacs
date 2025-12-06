@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-12-06
+
+### Fixed
+- **Critical**: Fixed "Clear Hours Tonight" calculation showing incorrect values (was showing 22+ hours)
+  - Now correctly counts only hours within tonight's darkness period (astronomical dusk → dawn)
+  - During daytime: Counts full upcoming darkness period
+  - During nighttime: Counts only remaining hours until dawn
+  - Only focuses on current night cycle, not future nights
+  - Added helpful debug logging showing exact counting window
+
+### Technical
+- Added `_calculate_clear_hours_tonight()` method that uses sun data to determine darkness window
+- Moved clear hours calculation from chart parsing to after sun data is available
+- Enhanced logging shows whether counting "remaining hours" or "full darkness period"
+
 ## [1.3.0] - 2025-12-06
 
 ### Added
