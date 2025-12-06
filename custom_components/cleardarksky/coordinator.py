@@ -149,11 +149,17 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                     self._parse_chart_image, self._image_data
                 )
                 _LOGGER.warning("✅ Chart parsing completed!")
-                
+
                 # Calculate sun times
                 sun_data = await self._get_sun_data()
                 data.update(sun_data)
-                
+
+                # Calculate clear hours tonight (needs sun data)
+                clear_hours_tonight = self._calculate_clear_hours_tonight(
+                    data.get('forecast', []), sun_data
+                )
+                data['clear_hours_total'] = clear_hours_tonight
+
                 return data
                 
         except asyncio.TimeoutError as err:
@@ -240,26 +246,21 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             # Calculate current conditions (first hour in forecast)
             current = forecast_data[0] if forecast_data else {}
 
-            # Calculate averages and totals
-            clear_hours = sum(1 for f in forecast_data if f.get('cloud_value', 100) < 30)
-
+            # Calculate averages
             avg_cloud = sum(f.get('cloud_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
             avg_transparency = sum(f.get('transparency_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
             avg_seeing = sum(f.get('seeing_value', 0) for f in forecast_data) / len(forecast_data) if forecast_data else 0
 
             # Log summary of current conditions
             _LOGGER.warning(
-                "📊 Current conditions: Cloud=%.1f%%, Transparency=%.1f%%, Seeing=%.1f%%, Clear hours=%d/%d",
+                "📊 Current conditions: Cloud=%.1f%%, Transparency=%.1f%%, Seeing=%.1f%%",
                 current.get('cloud_value', 0),
                 current.get('transparency_value', 0),
-                current.get('seeing_value', 0),
-                clear_hours,
-                hours_to_sample
+                current.get('seeing_value', 0)
             )
 
             return {
                 'forecast': forecast_data,
-                'clear_hours_total': clear_hours,
                 'current_cloud_cover': current.get('cloud_value', 0),
                 'current_transparency': current.get('transparency_value', 0),
                 'current_seeing': current.get('seeing_value', 0),
@@ -275,7 +276,6 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Error parsing chart image: %s", err)
             return {
                 'forecast': [],
-                'clear_hours_total': 0,
                 'current_cloud_cover': 0,
                 'current_transparency': 0,
                 'current_seeing': 0,
@@ -286,7 +286,48 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 'last_updated': dt_util.utcnow(),
                 'chart_url': self.chart_url,
             }
-    
+
+    def _calculate_clear_hours_tonight(self, forecast_data: list, sun_data: dict) -> int:
+        """Calculate clear hours during tonight's darkness period.
+
+        Only counts future forecast hours that fall within the current/next darkness period.
+        """
+        now = dt_util.now()
+        next_dusk = sun_data.get('astronomical_dusk')
+        next_dawn = sun_data.get('astronomical_dawn')
+
+        if not next_dusk or not next_dawn:
+            return 0
+
+        # Determine counting window
+        if next_dusk <= now < next_dawn:
+            # We're in darkness now - count from now to dawn (remaining hours)
+            start_time = now
+            _LOGGER.warning("🌙 Currently in darkness - counting remaining hours until dawn")
+        else:
+            # We're in daytime - count full darkness period (tonight)
+            start_time = next_dusk
+            _LOGGER.warning("☀️ Currently in daylight - counting full darkness period for tonight")
+
+        # Count clear hours in forecast within darkness window
+        clear_hours = 0
+        for i, forecast_hour in enumerate(forecast_data):
+            forecast_time = now + timedelta(hours=i)
+
+            # Only count hours within the darkness period
+            if start_time <= forecast_time <= next_dawn:
+                if forecast_hour.get('cloud_value', 100) < 30:
+                    clear_hours += 1
+
+        _LOGGER.warning(
+            "✨ Clear hours tonight: %d (window: %s → %s)",
+            clear_hours,
+            start_time.strftime("%I:%M %p") if start_time else "N/A",
+            next_dawn.strftime("%I:%M %p") if next_dawn else "N/A"
+        )
+
+        return clear_hours
+
     def _calculate_condition_value(self, row_name: str, r: int, g: int, b: int) -> float:
         """Calculate condition value (0-100%) based on pixel color.
 
