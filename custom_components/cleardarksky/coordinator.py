@@ -32,6 +32,81 @@ _LOGGER.warning("=" * 80)
 _LOGGER.warning("🔥 COORDINATOR.PY LOADED - VERSION 1.2.8 - LOGGING ACTIVE 🔥")
 _LOGGER.warning("=" * 80)
 
+# ClearDarkSky discrete color palettes (hex to RGB)
+# Cloud Cover: 11 levels (0% to 100%)
+CLOUD_COLORS = [
+    ((0, 62, 126), 0),      # Clear
+    ((19, 83, 147), 10),    # 10% covered
+    ((38, 102, 166), 20),   # 20% covered
+    ((78, 142, 206), 30),   # 30% covered
+    ((98, 162, 226), 40),   # 40% covered
+    ((118, 182, 246), 50),  # 50% covered
+    ((153, 217, 217), 60),  # 60% covered
+    ((173, 237, 237), 70),  # 70% covered
+    ((193, 193, 193), 80),  # 80% covered
+    ((233, 233, 233), 90),  # 90% covered
+    ((250, 250, 250), 100), # Overcast
+]
+
+# Transparency: 6 levels (0% = too cloudy, 100% = transparent)
+TRANSPARENCY_COLORS = [
+    ((249, 249, 249), 0),   # Too cloudy to forecast
+    ((199, 199, 199), 20),  # Poor
+    ((149, 213, 213), 40),  # Below average
+    ((99, 163, 227), 60),   # Average
+    ((44, 108, 172), 80),   # Above average
+    ((0, 63, 127), 100),    # Transparent (excellent)
+]
+
+# Seeing: 6 levels (0% = too cloudy, 100% = excellent)
+SEEING_COLORS = [
+    ((249, 249, 249), 0),   # Too cloudy to forecast
+    ((199, 199, 199), 20),  # Bad 1/5
+    ((149, 213, 213), 40),  # Poor 2/5
+    ((99, 163, 227), 60),   # Average 3/5
+    ((44, 108, 172), 80),   # Good 4/5
+    ((0, 63, 127), 100),    # Excellent 5/5
+]
+
+# Darkness: 15 levels (magnitude scale -4 to 6.5)
+# Mapped to 0-100% where 0% = daylight, 100% = darkest
+DARKNESS_COLORS = [
+    ((255, 255, 255), 0),    # -4 (daylight)
+    ((255, 241, 216), 7),    # -3
+    ((255, 227, 177), 14),   # -2
+    ((255, 213, 138), 21),   # -1
+    ((255, 198, 98), 29),    # 0
+    ((255, 184, 59), 36),    # 1.0
+    ((255, 170, 20), 43),    # 2.0 (sunset)
+    ((0, 255, 255), 50),     # 3.0 (astronomical twilight)
+    ((0, 203, 255), 57),     # 3.5
+    ((0, 150, 255), 64),     # 4.0
+    ((0, 100, 228), 71),     # 4.5
+    ((0, 50, 202), 79),      # 5.0
+    ((0, 0, 175), 86),       # 5.5
+    ((0, 0, 66), 93),        # 6.0
+    ((0, 0, 75), 100),       # 6.5 (darkest)
+]
+
+
+def _find_nearest_color(r: int, g: int, b: int, color_palette: list) -> float:
+    """Find the nearest color in a discrete palette and return its value.
+
+    Uses Euclidean distance in RGB space.
+    """
+    min_distance = float('inf')
+    nearest_value = 50.0
+
+    for (ref_r, ref_g, ref_b), value in color_palette:
+        # Calculate Euclidean distance in RGB space
+        distance = ((r - ref_r) ** 2 + (g - ref_g) ** 2 + (b - ref_b) ** 2) ** 0.5
+
+        if distance < min_distance:
+            min_distance = distance
+            nearest_value = value
+
+    return float(nearest_value)
+
 
 class ClearDarkSkyCoordinator(DataUpdateCoordinator):
     """Class to manage fetching Clear Dark Sky data."""
@@ -220,120 +295,21 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
     def _calculate_condition_value(self, row_name: str, r: int, g: int, b: int) -> float:
         """Calculate condition value (0-100%) based on pixel color.
 
-        Uses continuous/gradual mapping instead of discrete thresholds for more accurate readings.
+        Uses discrete color matching against ClearDarkSky's exact color palettes.
         """
-        brightness = (r + g + b) / 3
-
         if row_name == 'cloud':
-            # Dark blue = 0% (clear), White = 100% (overcast)
-            # Use a combination of brightness and blue saturation
-
-            # Calculate how "blue" the color is vs how "white/gray" it is
-            blue_saturation = b / max(1, (r + g + b))
-
-            # Very white/bright = overcast
-            if brightness > 220:
-                return 95.0 + (brightness - 220) / 35 * 5  # 95-100%
-
-            # High brightness with low blue = cloudy
-            if brightness > 180:
-                cloud_pct = 70 + (brightness - 180) / 40 * 25  # 70-95%
-                return max(70.0, min(95.0, cloud_pct))
-
-            # Medium brightness - check blue saturation
-            if brightness > 140:
-                # Less blue = more clouds
-                if blue_saturation < 0.35:
-                    return 50 + (180 - brightness) / 40 * 20  # 50-70%
-                else:
-                    return 30 + (180 - brightness) / 40 * 20  # 30-50%
-
-            # Lower brightness - likely clear if blue-tinted
-            if blue_saturation > 0.4:
-                # Dark blue = clear sky
-                return max(0.0, min(20.0, 20 - (140 - brightness) / 14))  # 0-20%
-            else:
-                # Dark but not blue = partially cloudy
-                # Cap at 100% to prevent overflow
-                return min(100.0, 25 + max(0, (140 - brightness) / 14 * 15))  # 25-40%
-
+            return _find_nearest_color(r, g, b, CLOUD_COLORS)
         elif row_name == 'transparency':
-            # Dark blue = 100% (excellent), White = 0% (poor)
-            # Transparency indicates atmospheric clarity
-
-            # Calculate blue saturation
-            blue_saturation = b / max(1, (r + g + b))
-
-            # Very dark blue = excellent transparency
-            if brightness < 100 and blue_saturation > 0.4:
-                return min(100.0, 90 + (100 - brightness) / 100 * 10)  # 90-100%
-
-            # Dark blue = good transparency
-            if brightness < 140 and blue_saturation > 0.38:
-                return min(90.0, 70 + (140 - brightness) / 40 * 20)  # 70-90%
-
-            # Medium blue = fair transparency
-            if brightness < 180:
-                if blue_saturation > 0.35:
-                    return min(70.0, 50 + max(0, (180 - brightness) / 40 * 20))  # 50-70%
-                else:
-                    # Cap at 100% to prevent overflow
-                    return min(100.0, 30 + max(0, (180 - brightness) / 40 * 20))  # 30-50%
-
-            # Light/white = poor transparency
-            return max(0.0, 30 - (brightness - 180) / 75 * 30)  # 0-30%
-
+            return _find_nearest_color(r, g, b, TRANSPARENCY_COLORS)
         elif row_name == 'seeing':
-            # Dark blue = 100% (excellent), White = 0% (poor)
-            # Seeing indicates atmospheric steadiness
-            # Use same logic as transparency
-
-            blue_saturation = b / max(1, (r + g + b))
-
-            if brightness < 100 and blue_saturation > 0.4:
-                return min(100.0, 90 + (100 - brightness) / 100 * 10)
-
-            if brightness < 140 and blue_saturation > 0.38:
-                return min(90.0, 70 + (140 - brightness) / 40 * 20)
-
-            if brightness < 180:
-                if blue_saturation > 0.35:
-                    return min(70.0, 50 + max(0, (180 - brightness) / 40 * 20))
-                else:
-                    # Cap at 100% to prevent overflow
-                    return min(100.0, 30 + max(0, (180 - brightness) / 40 * 20))
-
-            return max(0.0, 30 - (brightness - 180) / 75 * 30)
-
+            return _find_nearest_color(r, g, b, SEEING_COLORS)
         elif row_name == 'darkness':
-            # Black = 100% (dark), White = 0% (daylight)
-            # Simple inverse brightness mapping
-
-            if brightness < 30:
-                return 100.0
-            elif brightness < 100:
-                return 100 - (brightness - 30) / 70 * 20  # 100-80%
-            elif brightness < 180:
-                return 80 - (brightness - 100) / 80 * 60  # 80-20%
-            else:
-                return max(0.0, 20 - (brightness - 180) / 75 * 20)  # 20-0%
-
+            return _find_nearest_color(r, g, b, DARKNESS_COLORS)
         elif row_name == 'wind':
-            # Darker colors = calmer, lighter = windier
-            # Use continuous mapping based on brightness
-
-            if brightness < 60:
-                return 95.0 + (60 - brightness) / 60 * 5  # 95-100%
-            elif brightness < 120:
-                return 70 + (120 - brightness) / 60 * 25  # 70-95%
-            elif brightness < 180:
-                return 40 + (180 - brightness) / 60 * 30  # 40-70%
-            elif brightness < 220:
-                return 15 + (220 - brightness) / 40 * 25  # 15-40%
-            else:
-                return max(0.0, 15 - (brightness - 220) / 35 * 15)  # 0-15%
-
-        return 50.0  # Default
+            # Wind removed per user request - return neutral value
+            return 50.0
+        else:
+            return 50.0  # Default for unknown rows
 
     async def _get_sun_data(self) -> dict:
         """Calculate sun rise/set times and darkness periods."""
