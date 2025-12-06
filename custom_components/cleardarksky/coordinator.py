@@ -94,7 +94,7 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 img = img.convert('RGB')
 
             width, height = img.size
-            _LOGGER.debug("Chart image size: %dx%d", width, height)
+            _LOGGER.info("Chart image size: %dx%d", width, height)
 
             # Estimate row positions (percentages of image height)
             # These are approximate and may need adjustment based on chart version
@@ -105,7 +105,8 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                 'darkness': int(height * 0.39),     # Darkness row
                 'wind': int(height * 0.47),         # Wind row
             }
-            _LOGGER.debug("Sampling row positions: %s", row_positions)
+            _LOGGER.info("Sampling row positions (Y coordinates): %s", row_positions)
+            _LOGGER.info("These percentages may need adjustment for your chart version")
 
             # Sample every hour position across the chart
             hours_to_sample = min(48, width // 10)
@@ -124,15 +125,22 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
                             r, g, b = pixel[:3] if len(pixel) >= 3 else (pixel, pixel, pixel)
 
                             hour_data[f'{row_name}_rgb'] = (r, g, b)
-                            hour_data[f'{row_name}_value'] = self._calculate_condition_value(
-                                row_name, r, g, b
-                            )
+                            value = self._calculate_condition_value(row_name, r, g, b)
+                            hour_data[f'{row_name}_value'] = value
 
                             # Debug log first 3 hours for troubleshooting
                             if hour < 3:
-                                _LOGGER.debug(
-                                    "Hour %d, %s: RGB=(%d,%d,%d) -> Value=%.1f%%",
-                                    hour, row_name, r, g, b, hour_data[f'{row_name}_value']
+                                brightness = (r + g + b) / 3
+                                _LOGGER.info(
+                                    "Hour %d, %s at Y=%d, X=%d: RGB=(%d,%d,%d) brightness=%.1f -> Value=%.1f%%",
+                                    hour, row_name, row_y, x_pos, r, g, b, brightness, value
+                                )
+
+                            # Warn if value is out of expected range
+                            if value > 100 or value < 0:
+                                _LOGGER.warning(
+                                    "⚠️ Hour %d, %s: Value %.1f%% is out of range! RGB=(%d,%d,%d) at position Y=%d",
+                                    hour, row_name, value, r, g, b, row_y
                                 )
 
                     forecast_data.append(hour_data)
@@ -226,10 +234,11 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             # Lower brightness - likely clear if blue-tinted
             if blue_saturation > 0.4:
                 # Dark blue = clear sky
-                return max(0.0, 20 - (140 - brightness) / 14)  # 0-20%
+                return max(0.0, min(20.0, 20 - (140 - brightness) / 14))  # 0-20%
             else:
                 # Dark but not blue = partially cloudy
-                return 25 + (140 - brightness) / 14 * 15  # 25-40%
+                # Cap at 100% to prevent overflow
+                return min(100.0, 25 + max(0, (140 - brightness) / 14 * 15))  # 25-40%
 
         elif row_name == 'transparency':
             # Dark blue = 100% (excellent), White = 0% (poor)

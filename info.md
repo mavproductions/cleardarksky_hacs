@@ -1,16 +1,22 @@
 # Clear Dark Sky for Home Assistant
 
 {% if installed %}
-## Changes in v1.2.0
+## Changes in v1.2.5
+
+### Critical Bug Fixes
+- **Fixed math overflow**: Cloud cover can no longer exceed 100% (was reporting values like 175%)
+- **Added value capping**: All calculations now properly limited to 0-100% range
+- **Reload support**: Integration can now be reloaded without full Home Assistant restart
 
 ### Improvements
+- **Enhanced diagnostics**: Logs now show exact pixel coordinates and RGB values
+- **Better error detection**: Warnings when values are out of expected range
+- **Easier troubleshooting**: INFO level logging without needing debug mode
+
+### From v1.2.0
 - **Enhanced Color Mapping**: Completely rewritten chart parsing logic with gradual/continuous color-to-value mapping for more accurate readings
 - **Better Clear Sky Detection**: Improved blue saturation algorithm to correctly identify dark blue (clear) vs gray (cloudy) pixels
 - **Debug Logging**: Added comprehensive debug logging to help troubleshoot parsing issues
-
-### Bug Fixes
-- Fixed issue where clear skies were incorrectly reported as poor/cloudy conditions
-- Improved transparency and seeing calculations for better accuracy
 {% endif %}
 
 ## About
