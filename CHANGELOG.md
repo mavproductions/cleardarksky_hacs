@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2025-12-06
+
+### Added
+- **New binary sensor**: "Day Moon Visible" - Indicates when the moon is visible during daylight hours
+  - Combines astronomical calculations with cloud cover data for accurate visibility prediction
+  - Checks 5 conditions: daytime, moon above horizon (>5°), moon bright enough (>10% illumination), far from sun (>15° separation), sky clear enough (<70% cloud cover)
+  - Includes detailed `status` attribute showing "Visible" or listing all blocking reasons
+  - Additional attributes: moon_altitude, moon_illumination, sun_separation, cloud_cover
+  - Perfect for planning daytime moon photography or avoiding moon glare during day astronomy
+- Moon calculation system using astral library
+  - Calculates moon position (altitude, azimuth)
+  - Calculates moon illumination percentage (0-100%)
+  - Calculates angular separation between sun and moon
+  - Integrated with existing sun calculations
+
+### Technical
+- Added `_get_moon_data()` method to coordinator for moon position and illumination calculations
+- Uses astral library's moon module (already included in Home Assistant)
+- Moon data updates with every coordinator refresh alongside sun and chart data
+- Enhanced logging shows moon altitude, illumination, and sun separation
+
 ## [1.3.1] - 2025-12-06
 
 ### Fixed

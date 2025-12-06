@@ -6,16 +6,20 @@
 
 This custom component integrates astronomy forecast data from [ClearDarkSky.com](https://www.cleardarksky.com/) into Home Assistant, providing specialized sensors essential for hobby astronomers, stargazers, and anyone interested in optimal viewing conditions.
 
-## What's New in v1.3.1
+## What's New in v1.3.2
 
-### Critical Bug Fix
+### New Feature
+- **Day Moon Visible Sensor**: Binary sensor showing when the moon is visible during daylight hours
+  - Combines moon position, illumination, and cloud cover data for accurate visibility prediction
+  - Perfect for daytime moon photography planning or avoiding moon glare
+
+### From v1.3.1
 - **Fixed "Clear Hours Tonight"**: Was incorrectly showing 22+ hours - now properly counts only hours within tonight's darkness period
 
 ### From v1.3.0
 - **Discrete Color Matching**: Completely rewritten chart parsing using exact ClearDarkSky color codes with Euclidean distance algorithm
 - **New Sensor**: "Current Observing Quality" - Real-time quality based on current cloud cover, transparency, and seeing
 - **Renamed Sensor**: "Observing Quality" → "Tonight's Observing Forecast" for clarity
-- **Removed**: Wind sensors
 
 ## Features ✨
 
@@ -97,10 +101,11 @@ The integration is configured entirely via the Home Assistant UI:
 | **Seeing (Average)** | Average seeing over 48h forecast | % | (same ratings) |
 | **Darkness (Current)** | Current darkness level | % | Dark / Twilight / Dusk-Dawn / Daylight |
 
-### Binary Sensors (3 total)
+### Binary Sensors (4 total)
 
 | Sensor | Description | On When |
 |--------|-------------|---------|
+| **Day Moon Visible** | Is the moon visible during daylight? | Daytime + moon above horizon + bright enough + far from sun + clear skies |
 | **Clear Sky Tonight** | Is tonight mostly clear? | Clear hours ≥ 50% of darkness hours |
 | **Good Observing Conditions** | Are conditions good for observing? | Clear hours ≥ 70% of darkness hours |
 | **Astronomical Darkness** | Is it currently astronomically dark? | Current time between dusk and dawn |

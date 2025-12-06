@@ -37,7 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # This will fire when the file is imported
 _LOGGER.warning("=" * 80)
-_LOGGER.warning("🔥 COORDINATOR.PY LOADED - VERSION 1.3.1 - LOGGING ACTIVE 🔥")
+_LOGGER.warning("🔥 COORDINATOR.PY LOADED - VERSION 1.3.2 - LOGGING ACTIVE 🔥")
 _LOGGER.warning("=" * 80)
 
 # ClearDarkSky discrete color palettes (hex to RGB)

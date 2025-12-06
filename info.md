@@ -1,7 +1,16 @@
 # Clear Dark Sky for Home Assistant
 
 {% if installed %}
-## Changes in v1.3.1
+## Changes in v1.3.2
+
+### New Feature
+- **Day Moon Visible sensor**: New binary sensor indicating when the moon is visible during daylight
+  - Combines moon position, illumination, and cloud cover data
+  - Shows detailed status: "Visible" or blocking reasons (e.g., "Moon too dim (8% illuminated); Too cloudy (75%)")
+  - Perfect for daytime moon photography planning
+  - Includes moon altitude, illumination %, sun separation, and cloud cover attributes
+
+### From v1.3.1
 
 ### Fix
 - **"Clear Hours Tonight" sensor logic**: Was incorrectly showing 22+ hours
