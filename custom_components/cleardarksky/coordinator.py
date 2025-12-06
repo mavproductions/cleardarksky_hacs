@@ -249,18 +249,19 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
 
             # Very dark blue = excellent transparency
             if brightness < 100 and blue_saturation > 0.4:
-                return 90 + (100 - brightness) / 100 * 10  # 90-100%
+                return min(100.0, 90 + (100 - brightness) / 100 * 10)  # 90-100%
 
             # Dark blue = good transparency
             if brightness < 140 and blue_saturation > 0.38:
-                return 70 + (140 - brightness) / 40 * 20  # 70-90%
+                return min(90.0, 70 + (140 - brightness) / 40 * 20)  # 70-90%
 
             # Medium blue = fair transparency
             if brightness < 180:
                 if blue_saturation > 0.35:
-                    return 50 + (180 - brightness) / 40 * 20  # 50-70%
+                    return min(70.0, 50 + max(0, (180 - brightness) / 40 * 20))  # 50-70%
                 else:
-                    return 30 + (180 - brightness) / 40 * 20  # 30-50%
+                    # Cap at 100% to prevent overflow
+                    return min(100.0, 30 + max(0, (180 - brightness) / 40 * 20))  # 30-50%
 
             # Light/white = poor transparency
             return max(0.0, 30 - (brightness - 180) / 75 * 30)  # 0-30%
@@ -273,16 +274,17 @@ class ClearDarkSkyCoordinator(DataUpdateCoordinator):
             blue_saturation = b / max(1, (r + g + b))
 
             if brightness < 100 and blue_saturation > 0.4:
-                return 90 + (100 - brightness) / 100 * 10
+                return min(100.0, 90 + (100 - brightness) / 100 * 10)
 
             if brightness < 140 and blue_saturation > 0.38:
-                return 70 + (140 - brightness) / 40 * 20
+                return min(90.0, 70 + (140 - brightness) / 40 * 20)
 
             if brightness < 180:
                 if blue_saturation > 0.35:
-                    return 50 + (180 - brightness) / 40 * 20
+                    return min(70.0, 50 + max(0, (180 - brightness) / 40 * 20))
                 else:
-                    return 30 + (180 - brightness) / 40 * 20
+                    # Cap at 100% to prevent overflow
+                    return min(100.0, 30 + max(0, (180 - brightness) / 40 * 20))
 
             return max(0.0, 30 - (brightness - 180) / 75 * 30)
 

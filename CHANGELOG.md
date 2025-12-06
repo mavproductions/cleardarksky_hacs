@@ -5,11 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.5] - 2025-12-06
+## [1.2.6] - 2025-12-06
 
 ### Fixed
-- **Critical**: Fixed math bug where cloud cover could exceed 100% (reported values like 175%)
-- **Critical**: Added proper value capping (0-100%) to prevent overflow in all condition calculations
+- **Critical**: Fixed math overflow in cloud cover calculation (reported 175% on clear days)
+- **Critical**: Fixed math overflow in transparency calculation (reported 120% during nighttime)
+- **Critical**: Fixed math overflow in seeing calculation (same issue as transparency)
+- **Critical**: All condition values now properly capped at 0-100% range with min/max guards
 - Added `async_reload_entry` to support integration reloading without full HA restart
 
 ### Added

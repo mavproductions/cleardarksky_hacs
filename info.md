@@ -1,7 +1,7 @@
 # Clear Dark Sky for Home Assistant
 
 {% if installed %}
-## Changes in v1.2.5
+## Changes in v1.2.6
 
 ### Critical Bug Fixes
 - **Fixed math overflow**: Cloud cover can no longer exceed 100% (was reporting values like 175%)
