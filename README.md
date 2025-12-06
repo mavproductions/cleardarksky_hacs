@@ -6,13 +6,16 @@
 
 This custom component integrates astronomy forecast data from [ClearDarkSky.com](https://www.cleardarksky.com/) into Home Assistant, providing specialized sensors essential for hobby astronomers, stargazers, and anyone interested in optimal viewing conditions.
 
-## What's New in v1.3.0
+## What's New in v1.3.1
 
-### Major Improvements
+### Critical Bug Fix
+- **Fixed "Clear Hours Tonight"**: Was incorrectly showing 22+ hours - now properly counts only hours within tonight's darkness period
+
+### From v1.3.0
 - **Discrete Color Matching**: Completely rewritten chart parsing using exact ClearDarkSky color codes with Euclidean distance algorithm
 - **New Sensor**: "Current Observing Quality" - Real-time quality based on current cloud cover, transparency, and seeing
 - **Renamed Sensor**: "Observing Quality" → "Tonight's Observing Forecast" for clarity
-- **Removed**: Removed wind sensors
+- **Removed**: Wind sensors
 
 ## Features ✨
 

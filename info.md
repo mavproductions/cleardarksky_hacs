@@ -1,7 +1,16 @@
 # Clear Dark Sky for Home Assistant
 
 {% if installed %}
-## Changes in v1.3.0
+## Changes in v1.3.1
+
+### Fix
+- **"Clear Hours Tonight" sensor logic**: Was incorrectly showing 22+ hours
+  - Now correctly counts only hours within tonight's darkness period
+  - During daytime: Shows full upcoming darkness period
+  - During nighttime: Shows remaining hours until dawn
+  - Only focuses on current night cycle
+
+### From v1.3.0
 
 ### Major Improvements
 - **Discrete Color Matching**: Completely rewritten chart parsing using exact ClearDarkSky color palettes
